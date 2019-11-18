@@ -1,4 +1,5 @@
 import nn
+import numpy as np
 
 class PerceptronModel(object):
     def __init__(self, dimensions):
@@ -47,6 +48,16 @@ class PerceptronModel(object):
         Train the perceptron until convergence.
         """
         "*** YOUR CODE HERE ***"
+        converged = False
+        while not converged:
+            failures = 0
+            for item, classification in dataset.iterate_once(1):
+                prediction = self.get_prediction(item)
+                if prediction != nn.as_scalar(classification):
+                    failures += 1
+                    self.w.update(item, nn.as_scalar(classification))
+            if failures == 0:
+                converged = True
 
 class RegressionModel(object):
     """
