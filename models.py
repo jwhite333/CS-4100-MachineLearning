@@ -91,23 +91,10 @@ class RegressionModel(object):
             A node with shape (batch_size x 1) containing predicted y-values
         """
         "*** YOUR CODE HERE ***"
-        # (1, 1) x (1 x 100) = (1, 100)
-        var = nn.Linear(x, self.layer1)
-        # (1, 100) + (1, 100) = (1, 100)
-        var = nn.AddBias(var, self.bias1)
-        var = nn.ReLU(var)
-
-        # (1, 100) x (100, 100) = (1, 100)
-        var = nn.Linear(var, self.layer2)
-        # (1, 100) + (1, 100) = (1, 100)
-        var = nn.AddBias(var, self.bias2)
-        var = nn.ReLU(var)
-
-        # (1, 100) x (100, 1) = (1, 1)
-        var = nn.Linear(var, self.layer3)
-        # (1, 1) + (1, 1)
-        var = nn.AddBias(var, self.bias3)
-        return var
+        layer1 = nn.ReLU(nn.AddBias(nn.Linear(x, self.layer1), self.bias1))
+        layer2 = nn.ReLU(nn.AddBias(nn.Linear(layer1, self.layer2), self.bias2))
+        layer3 = nn.AddBias(nn.Linear(layer2, self.layer3), self.bias3)
+        return layer3
 
     def get_loss(self, x, y):
         """
@@ -128,19 +115,15 @@ class RegressionModel(object):
         Trains the model.
         """
         "*** YOUR CODE HERE ***"
-        lossPercentage = 100
-
+        lossPercentage = 1.0
         while lossPercentage >= 0.0002:
             for data, classifications in dataset.iterate_once(10):
                 loss = self.get_loss(data, classifications)
                 gradients = nn.gradients(loss, self.parameters)
                 for index, parameter in enumerate(self.parameters):
                     parameter.update(gradients[index], self.learningRate)
-
             for data, classifications in dataset.iterate_once(200):
                 lossPercentage = nn.as_scalar(self.get_loss(data, classifications))
-
-        print("")
 
 class DigitClassificationModel(object):
     """
@@ -159,6 +142,21 @@ class DigitClassificationModel(object):
     def __init__(self):
         # Initialize your model parameters here
         "*** YOUR CODE HERE ***"
+        self.learningRate = -0.05
+
+        self.layer1 = nn.Parameter(784, 784)
+        self.bias1 = nn.Parameter(1, 784)
+
+        self.layer2 = nn.Parameter(784, 1000)
+        self.bias2 = nn.Parameter(1, 1000)
+
+        self.layer3 = nn.Parameter(1000, 500)
+        self.bias3 = nn.Parameter(1, 500)
+
+        self.layer4 = nn.Parameter(500, 10)
+        self.bias4 = nn.Parameter(1, 10)
+
+        self.parameters = [self.layer1, self.bias1, self.layer2, self.bias2, self.layer3, self.bias3, self.layer4, self.bias4]
 
     def run(self, x):
         """
@@ -175,6 +173,11 @@ class DigitClassificationModel(object):
                 (also called logits)
         """
         "*** YOUR CODE HERE ***"
+        layer1 = nn.ReLU(nn.AddBias(nn.Linear(x, self.layer1), self.bias1))
+        layer2 = nn.ReLU(nn.AddBias(nn.Linear(layer1, self.layer2), self.bias2))
+        layer3 = nn.ReLU(nn.AddBias(nn.Linear(layer2, self.layer3), self.bias3))
+        layer4 = nn.AddBias(nn.Linear(layer3, self.layer4), self.bias4)
+        return layer4
 
     def get_loss(self, x, y):
         """
@@ -190,12 +193,22 @@ class DigitClassificationModel(object):
         Returns: a loss node
         """
         "*** YOUR CODE HERE ***"
+        predictedY = self.run(x)
+        return nn.SoftmaxLoss(predictedY, y)
 
     def train(self, dataset):
         """
         Trains the model.
         """
         "*** YOUR CODE HERE ***"
+        lossPercentage = 1.0
+        while lossPercentage >= 0.03:
+            for data, classifications in dataset.iterate_once(25):
+                loss = self.get_loss(data, classifications)
+                gradients = nn.gradients(loss, self.parameters)
+                for index, parameter in enumerate(self.parameters):
+                    parameter.update(gradients[index], self.learningRate)
+            lossPercentage = 1.0 - dataset.get_validation_accuracy()
 
 class LanguageIDModel(object):
     """
