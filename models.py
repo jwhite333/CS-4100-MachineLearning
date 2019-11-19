@@ -73,10 +73,13 @@ class RegressionModel(object):
         self.layer1 = nn.Parameter(1, 100)
         self.bias1 = nn.Parameter(1, 100)
 
-        self.layer2 = nn.Parameter(100, 1)
-        self.bias2 = nn.Parameter(1, 1)
+        self.layer2 = nn.Parameter(100, 100)
+        self.bias2 = nn.Parameter(1, 100)
 
-        self.parameters = [self.layer1, self.bias1, self.layer2, self.bias2]
+        self.layer3 = nn.Parameter(100, 1)
+        self.bias3 = nn.Parameter(1, 1)
+
+        self.parameters = [self.layer1, self.bias1, self.layer2, self.bias2, self.layer3, self.bias3]
 
     def run(self, x):
         """
@@ -90,14 +93,20 @@ class RegressionModel(object):
         "*** YOUR CODE HERE ***"
         # (1, 1) x (1 x 100) = (1, 100)
         var = nn.Linear(x, self.layer1)
-        # (1, 100) + (1, 100)
+        # (1, 100) + (1, 100) = (1, 100)
         var = nn.AddBias(var, self.bias1)
         var = nn.ReLU(var)
 
-        # (1, 100) x (100, 1) = (1, 1)
+        # (1, 100) x (100, 100) = (1, 100)
         var = nn.Linear(var, self.layer2)
-        # (1, 1) + (1, 1)
+        # (1, 100) + (1, 100) = (1, 100)
         var = nn.AddBias(var, self.bias2)
+        var = nn.ReLU(var)
+
+        # (1, 100) x (100, 1) = (1, 1)
+        var = nn.Linear(var, self.layer3)
+        # (1, 1) + (1, 1)
+        var = nn.AddBias(var, self.bias3)
         return var
 
     def get_loss(self, x, y):
@@ -121,7 +130,7 @@ class RegressionModel(object):
         "*** YOUR CODE HERE ***"
         lossPercentage = 100
 
-        while lossPercentage >= 0.02:
+        while lossPercentage >= 0.0002:
             for data, classifications in dataset.iterate_once(10):
                 loss = self.get_loss(data, classifications)
                 gradients = nn.gradients(loss, self.parameters)
