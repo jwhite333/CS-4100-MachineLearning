@@ -1,5 +1,6 @@
 import nn
 import numpy as np
+import time
 
 class PerceptronModel(object):
     def __init__(self, dimensions):
@@ -228,6 +229,15 @@ class LanguageIDModel(object):
 
         # Initialize your model parameters here
         "*** YOUR CODE HERE ***"
+        self.learningRate = -0.05
+
+        self.layers = [nn.Parameter(47, 400), nn.Parameter(400, 400), nn.Parameter(400, 400),  nn.Parameter(400, 400), nn.Parameter(400, 200), nn.Parameter(200, 5)]
+        self.biases = [ nn.Parameter(1, 400),   nn.Parameter(1, 400),   nn.Parameter(1, 400),    nn.Parameter(1, 400),   nn.Parameter(1, 200),   nn.Parameter(1, 5)]
+
+        self.parameters = []
+        for layer in self.layers:
+            self.parameters.append(layer)
+        self.parameters.extend(self.biases)
 
     def run(self, xs):
         """
@@ -259,6 +269,16 @@ class LanguageIDModel(object):
                 (also called logits)
         """
         "*** YOUR CODE HERE ***"
+        model = None
+        for letter in xs:
+            previousLayer = nn.ReLU(nn.AddBias(nn.Linear(letter, self.layers[0]), self.biases[0]))
+            for index, hiddedLayer in enumerate(self.layers[1:-1]):
+                previousLayer = nn.ReLU(nn.AddBias(nn.Linear(previousLayer, hiddedLayer), self.biases[index + 1]))
+            lastLayer = nn.AddBias(nn.Linear(previousLayer, self.layers[-1]), self.biases[-1])
+            if model is not None:
+                lastLayer = nn.Add(model, lastLayer)
+            model = lastLayer
+        return model
 
     def get_loss(self, xs, y):
         """
@@ -275,9 +295,27 @@ class LanguageIDModel(object):
         Returns: a loss node
         """
         "*** YOUR CODE HERE ***"
+        predictedY = self.run(xs)
+        return nn.SoftmaxLoss(predictedY, y)
 
     def train(self, dataset):
         """
         Trains the model.
         """
         "*** YOUR CODE HERE ***"
+        lossPercentage = 1.0
+        epoch = 0
+        start = time.time()
+        while lossPercentage >= 0.19:
+            if epoch == 10:
+                print("Reached {0:.2f}% loss in 5 epochs. {1} seconds elapsed".format(lossPercentage, time.time() - start))
+                break
+            for data, classifications in dataset.iterate_once(25):
+                loss = self.get_loss(data, classifications)
+                gradients = nn.gradients(loss, self.parameters)
+                for index, parameter in enumerate(self.parameters):
+                    parameter.update(gradients[index], self.learningRate)
+            lossPercentage = 1.0 - dataset.get_validation_accuracy()
+            print("Epoch {0} done. {1} seconds elapsed".format(epoch, time.time() - start))
+            epoch += 1
+            
