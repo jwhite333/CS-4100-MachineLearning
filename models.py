@@ -117,7 +117,7 @@ class RegressionModel(object):
         """
         "*** YOUR CODE HERE ***"
         lossPercentage = 1.0
-        while lossPercentage >= 0.0002:
+        while lossPercentage >= 0.02:
             for data, classifications in dataset.iterate_once(10):
                 loss = self.get_loss(data, classifications)
                 gradients = nn.gradients(loss, self.parameters)
@@ -229,7 +229,7 @@ class LanguageIDModel(object):
 
         # Initialize your model parameters here
         "*** YOUR CODE HERE ***"
-        self.learningRate = -0.10
+        self.learningRate = 0.10
         #        previous output --> previous layer -----> + --> output layer --> output
         #            (b x 5)            (b x 50)           ^      (50 x 5)        (b x 5)
         #                                                  |
@@ -239,7 +239,7 @@ class LanguageIDModel(object):
         #                                                  |
         #                                                input  (b x 47)
 
-        self.previousOutputLayers = [nn.Parameter(5, 128), nn.Parameter(128, 128)]
+        self.previousOutputLayers = [nn.Parameter(128, 128), nn.Parameter(128, 128)]
         self.previousOutputBiases = [nn.Parameter(1, 128), nn.Parameter(1, 128)]
         
         self.inputLayers = [nn.Parameter(47, 128), nn.Parameter(128, 128)]
@@ -315,7 +315,7 @@ class LanguageIDModel(object):
                 previousOutputLayer = self.runPreviousOutputLayer(previousOutput)
                 inputLayer = nn.Add(inputLayer, previousOutputLayer)
             outputLayer = self.runOutputLayer(inputLayer)
-            previousOutput = outputLayer
+            previousOutput = inputLayer
         return outputLayer
 
     def get_loss(self, xs, y):
@@ -334,8 +334,8 @@ class LanguageIDModel(object):
         """
         "*** YOUR CODE HERE ***"
         predictedY = self.run(xs)
-        # return nn.SoftmaxLoss(predictedY, y)
-        return nn.SquareLoss(predictedY, y)
+        return nn.SoftmaxLoss(predictedY, y)
+        # return nn.SquareLoss(predictedY, y)
 
     def train(self, dataset):
         """
@@ -345,7 +345,7 @@ class LanguageIDModel(object):
         lossPercentage = 1.0
         epoch = 0
         start = time.time()
-        while lossPercentage >= 0.19:
+        while lossPercentage >= 0.05:
             if epoch == 20:
                 print("Reached {0:.2f}% loss in {1} epochs. {2} seconds elapsed".format(lossPercentage, epoch, time.time() - start))
                 break
@@ -353,7 +353,7 @@ class LanguageIDModel(object):
                 loss = self.get_loss(data, classifications)
                 gradients = nn.gradients(loss, self.parameters)
                 for index, parameter in enumerate(self.parameters):
-                    parameter.update(gradients[index], self.learningRate)
+                    parameter.update(gradients[index], -self.learningRate)
             lossPercentage = 1.0 - dataset.get_validation_accuracy()
             print("Epoch {0} finished with {1:.2f}% accuracy. {2} seconds elapsed".format(epoch, 1.0 - lossPercentage, time.time() - start))
             epoch += 1
