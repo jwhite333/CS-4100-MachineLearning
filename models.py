@@ -229,15 +229,54 @@ class LanguageIDModel(object):
 
         # Initialize your model parameters here
         "*** YOUR CODE HERE ***"
-        self.learningRate = -0.05
+        self.learningRate = -0.10
+        #        previous output --> previous layer -----> + --> output layer --> output
+        #            (b x 5)            (b x 50)           ^      (50 x 5)        (b x 5)
+        #                                                  |
+        #                                                  |
+        #                                             input layer (47 x 50)
+        #                                                  ^
+        #                                                  |
+        #                                                input  (b x 47)
 
-        self.layers = [nn.Parameter(47, 400), nn.Parameter(400, 400), nn.Parameter(400, 400),  nn.Parameter(400, 400), nn.Parameter(400, 200), nn.Parameter(200, 5)]
-        self.biases = [ nn.Parameter(1, 400),   nn.Parameter(1, 400),   nn.Parameter(1, 400),    nn.Parameter(1, 400),   nn.Parameter(1, 200),   nn.Parameter(1, 5)]
+        self.previousOutputLayers = [nn.Parameter(5, 128), nn.Parameter(128, 128)]
+        self.previousOutputBiases = [nn.Parameter(1, 128), nn.Parameter(1, 128)]
+        
+        self.inputLayers = [nn.Parameter(47, 128), nn.Parameter(128, 128)]
+        self.inputBiases = [nn.Parameter(1, 128) , nn.Parameter(1, 128)]
+
+        self.outputLayers = [nn.Parameter(128, 128), nn.Parameter(128, 5)]
+        self.outputBiases = [nn.Parameter(1, 128), nn.Parameter(1, 5)]
 
         self.parameters = []
-        for layer in self.layers:
-            self.parameters.append(layer)
-        self.parameters.extend(self.biases)
+        self.parameters.extend(self.previousOutputLayers)
+        self.parameters.extend(self.previousOutputBiases)
+        self.parameters.extend(self.inputLayers)
+        self.parameters.extend(self.inputBiases)
+        self.parameters.extend(self.outputLayers)
+        self.parameters.extend(self.outputBiases)
+
+    def runInputLayer(self, data):
+        inputLayer = None
+        for biasIndex, layer in enumerate(self.inputLayers):
+            inputLayer = nn.ReLU(nn.AddBias(nn.Linear(data, layer), self.inputBiases[biasIndex]))
+            data = inputLayer
+        return inputLayer
+
+    def runPreviousOutputLayer(self, data):
+        previousOutputLayer = None
+        for biasIndex, layer in enumerate(self.previousOutputLayers):
+            previousOutputLayer = nn.ReLU(nn.AddBias(nn.Linear(data, layer), self.previousOutputBiases[biasIndex]))
+            data = previousOutputLayer
+        return previousOutputLayer
+
+    def runOutputLayer(self, data):
+        outputLayer = None
+        for biasIndex, layer in enumerate(self.outputLayers[:-1]):
+            outputLayer = nn.ReLU(nn.AddBias(nn.Linear(data, layer), self.outputBiases[biasIndex]))
+            data = outputLayer
+        outputLayer = nn.AddBias(nn.Linear(data, self.outputLayers[-1]), self.outputBiases[-1])
+        return outputLayer
 
     def run(self, xs):
         """
@@ -269,16 +308,15 @@ class LanguageIDModel(object):
                 (also called logits)
         """
         "*** YOUR CODE HERE ***"
-        model = None
+        previousOutput = None
         for letter in xs:
-            previousLayer = nn.ReLU(nn.AddBias(nn.Linear(letter, self.layers[0]), self.biases[0]))
-            for index, hiddedLayer in enumerate(self.layers[1:-1]):
-                previousLayer = nn.ReLU(nn.AddBias(nn.Linear(previousLayer, hiddedLayer), self.biases[index + 1]))
-            lastLayer = nn.AddBias(nn.Linear(previousLayer, self.layers[-1]), self.biases[-1])
-            if model is not None:
-                lastLayer = nn.Add(model, lastLayer)
-            model = lastLayer
-        return model
+            inputLayer = self.runInputLayer(letter)
+            if previousOutput is not None:
+                previousOutputLayer = self.runPreviousOutputLayer(previousOutput)
+                inputLayer = nn.Add(inputLayer, previousOutputLayer)
+            outputLayer = self.runOutputLayer(inputLayer)
+            previousOutput = outputLayer
+        return outputLayer
 
     def get_loss(self, xs, y):
         """
@@ -296,7 +334,8 @@ class LanguageIDModel(object):
         """
         "*** YOUR CODE HERE ***"
         predictedY = self.run(xs)
-        return nn.SoftmaxLoss(predictedY, y)
+        # return nn.SoftmaxLoss(predictedY, y)
+        return nn.SquareLoss(predictedY, y)
 
     def train(self, dataset):
         """
@@ -307,15 +346,15 @@ class LanguageIDModel(object):
         epoch = 0
         start = time.time()
         while lossPercentage >= 0.19:
-            if epoch == 10:
-                print("Reached {0:.2f}% loss in 5 epochs. {1} seconds elapsed".format(lossPercentage, time.time() - start))
+            if epoch == 20:
+                print("Reached {0:.2f}% loss in {1} epochs. {2} seconds elapsed".format(lossPercentage, epoch, time.time() - start))
                 break
-            for data, classifications in dataset.iterate_once(25):
+            for data, classifications in dataset.iterate_once(50):
                 loss = self.get_loss(data, classifications)
                 gradients = nn.gradients(loss, self.parameters)
                 for index, parameter in enumerate(self.parameters):
                     parameter.update(gradients[index], self.learningRate)
             lossPercentage = 1.0 - dataset.get_validation_accuracy()
-            print("Epoch {0} done. {1} seconds elapsed".format(epoch, time.time() - start))
+            print("Epoch {0} finished with {1:.2f}% accuracy. {2} seconds elapsed".format(epoch, 1.0 - lossPercentage, time.time() - start))
             epoch += 1
             
